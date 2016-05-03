@@ -24,7 +24,7 @@ public class CoreDataStack {
                 context.undoManager = nil
                 context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
                 context.parentContext = self.writerContext
-                context.name = "DATAStack Main Context"
+                context.name = "CoreDataStack Main Context"
                 
                 _mainContext = context
             }
@@ -42,7 +42,7 @@ public class CoreDataStack {
                 context.undoManager = nil
                 context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
                 context.persistentStoreCoordinator = self.persistentStoreCoordinator
-                context.name = "DATAStack Writer Context"
+                context.name = "CoreDataStack Writer Context"
                 
                 _writerContext = context
             }
