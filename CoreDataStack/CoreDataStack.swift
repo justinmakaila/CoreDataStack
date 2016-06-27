@@ -149,6 +149,11 @@ public class CoreDataStack {
         return persistentStoreCoordinator
     }()
     
+    deinit {
+        NSNotificationCenter.defaultCenter().removeObserver(self, name: NSManagedObjectContextWillSaveNotification, object: nil)
+        NSNotificationCenter.defaultCenter().removeObserver(self, name: NSManagedObjectContextDidSaveNotification, object: nil)
+    }
+    
     // MARK: - Initalizers
     
     public convenience init?() {
@@ -165,11 +170,6 @@ public class CoreDataStack {
         self.modelBundle = bundle
         self.storeType = storeType
         self.storeName = storeName
-    }
-    
-    deinit {
-        NSNotificationCenter.defaultCenter().removeObserver(self, name: NSManagedObjectContextWillSaveNotification, object: nil)
-        NSNotificationCenter.defaultCenter().removeObserver(self, name: NSManagedObjectContextDidSaveNotification, object: nil)
     }
     
     // MARK: - Observers
@@ -205,7 +205,7 @@ public class CoreDataStack {
     }
     
     /// Creates a new private context.
-    public func newBackgroundContext(name: String? = nil, parentContext: NSManagedObjectContext? = nil) -> NSManagedObjectContext {
+    public func newBackgroundContext(name: String? = nil, parentContext: NSManagedObjectContext? = nil, mergeChanges: Bool = false) -> NSManagedObjectContext {
         let context = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
         
         if let parentContext = parentContext {
@@ -218,7 +218,9 @@ public class CoreDataStack {
         context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         context.name = name
         
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(CoreDataStack.backgroundContextDidSave(_:)), name: NSManagedObjectContextDidSaveNotification, object: context)
+        if mergeChanges {
+            NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(CoreDataStack.backgroundContextDidSave(_:)), name: NSManagedObjectContextDidSaveNotification, object: context)
+        }
         
         return context
     }
