@@ -306,7 +306,7 @@ open class CoreDataStack {
     
     fileprivate func applicationDocumentsDirectory() -> URL {
         #if os(tvOS)
-            return NSFileManager.defaultManager().URLsForDirectory(.CachesDirectory, inDomains: .UserDomainMask).last!
+            return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).last!
         #else
             return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last!
         #endif
