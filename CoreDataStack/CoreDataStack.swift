@@ -2,10 +2,10 @@ import Foundation
 import CoreData
 
 
-public class CoreDataStack {
+open class CoreDataStack {
     public enum StoreType {
-        case InMemory
-        case SQLite
+        case inMemory
+        case sqLite
     }
     
     // MARK: - Variables
@@ -13,17 +13,17 @@ public class CoreDataStack {
     let storeType: StoreType
     let storeName: String?
     let modelName: String
-    let modelBundle: NSBundle
+    let modelBundle: Bundle
     
     /// The context for the main queue
-    private var _mainContext: NSManagedObjectContext?
-    public var mainContext: NSManagedObjectContext {
+    fileprivate var _mainContext: NSManagedObjectContext?
+    open var mainContext: NSManagedObjectContext {
         get {
             if _mainContext == nil {
-                let context = NSManagedObjectContext(concurrencyType: .MainQueueConcurrencyType)
+                let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
                 context.undoManager = nil
                 context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-                context.parentContext = self.writerContext
+                context.parent = self.writerContext
                 context.name = "CoreDataStack Main Context"
                 
                 _mainContext = context
@@ -34,11 +34,11 @@ public class CoreDataStack {
     }
     
     /// The writer context
-    private var _writerContext: NSManagedObjectContext?
-    private var writerContext: NSManagedObjectContext {
+    fileprivate var _writerContext: NSManagedObjectContext?
+    fileprivate var writerContext: NSManagedObjectContext {
         get {
             if _writerContext == nil {
-                let context = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
+                let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
                 context.undoManager = nil
                 context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
                 context.persistentStoreCoordinator = self.persistentStoreCoordinator
@@ -53,45 +53,45 @@ public class CoreDataStack {
     
     /// The persistent store coordinator shared across all `NSManagedObjectContext` instances
     /// created by this instance
-    private var _persistentStoreCoordinator: NSPersistentStoreCoordinator?
-    private var persistentStoreCoordinator: NSPersistentStoreCoordinator {
+    fileprivate var _persistentStoreCoordinator: NSPersistentStoreCoordinator?
+    fileprivate var persistentStoreCoordinator: NSPersistentStoreCoordinator {
         get {
             if _persistentStoreCoordinator == nil {
                 let filePath = (self.storeName ?? self.modelName) + ".sqlite"
                 
                 var model: NSManagedObjectModel?
                 
-                if let momdModelURL = self.modelBundle.URLForResource(self.modelName, withExtension: "momd") {
-                    model = NSManagedObjectModel(contentsOfURL: momdModelURL)
+                if let momdModelURL = self.modelBundle.url(forResource: self.modelName, withExtension: "momd") {
+                    model = NSManagedObjectModel(contentsOf: momdModelURL)
                 }
                 
-                if let momModelURL = self.modelBundle.URLForResource(self.modelName, withExtension: "mom") {
-                    model = NSManagedObjectModel(contentsOfURL: momModelURL)
+                if let momModelURL = self.modelBundle.url(forResource: self.modelName, withExtension: "mom") {
+                    model = NSManagedObjectModel(contentsOf: momModelURL)
                 }
                 
                 guard let unwrappedModel = model else { fatalError("Model with model name \(self.modelName) not found in bundle \(self.modelBundle)") }
                 let persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: unwrappedModel)
                 
                 switch self.storeType {
-                case .InMemory:
+                case .inMemory:
                     do {
-                        try persistentStoreCoordinator.addPersistentStoreWithType(NSInMemoryStoreType, configuration: nil, URL: nil, options: nil)
+                        try persistentStoreCoordinator.addPersistentStore(ofType: NSInMemoryStoreType, configurationName: nil, at: nil, options: nil)
                     } catch let error as NSError {
                         fatalError("There was an error creating the persistentStoreCoordinator: \(error)")
                     }
                     
                     break
-                case .SQLite:
-                    let storeURL = self.applicationDocumentsDirectory().URLByAppendingPathComponent(filePath)
-                    guard let storePath = storeURL.path else { fatalError("Store path not found: \(storeURL)") }
+                case .sqLite:
+                    let storeURL = self.applicationDocumentsDirectory().appendingPathComponent(filePath)
+                    let storePath = storeURL.path
                     
-                    let shouldPreloadDatabase = !NSFileManager.defaultManager().fileExistsAtPath(storePath)
+                    let shouldPreloadDatabase = !FileManager.default.fileExists(atPath: storePath)
                     if shouldPreloadDatabase {
-                        if let preloadedPath = self.modelBundle.pathForResource(self.modelName, ofType: "sqlite") {
-                            let preloadURL = NSURL.fileURLWithPath(preloadedPath)
+                        if let preloadedPath = self.modelBundle.path(forResource: self.modelName, ofType: "sqlite") {
+                            let preloadURL = URL(fileURLWithPath: preloadedPath)
                             
                             do {
-                                try NSFileManager.defaultManager().copyItemAtURL(preloadURL, toURL: storeURL)
+                                try FileManager.default.copyItem(at: preloadURL, to: storeURL)
                             } catch let error as NSError {
                                 fatalError("Oops, could not copy preloaded data. Error: \(error)")
                             }
@@ -99,15 +99,15 @@ public class CoreDataStack {
                     }
                     
                     do {
-                        try persistentStoreCoordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: nil, URL: storeURL, options: [NSMigratePersistentStoresAutomaticallyOption : true, NSInferMappingModelAutomaticallyOption : true])
+                        try persistentStoreCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: [NSMigratePersistentStoresAutomaticallyOption : true, NSInferMappingModelAutomaticallyOption : true])
                     } catch {
                         print("Error encountered while reading the database. Please allow all the data to download again.")
                         
                         do {
-                            try NSFileManager.defaultManager().removeItemAtPath(storePath)
+                            try FileManager.default.removeItem(atPath: storePath)
                             
                             do {
-                                try persistentStoreCoordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: nil, URL: storeURL, options: [NSMigratePersistentStoresAutomaticallyOption : true, NSInferMappingModelAutomaticallyOption : true])
+                                try persistentStoreCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: [NSMigratePersistentStoresAutomaticallyOption : true, NSInferMappingModelAutomaticallyOption : true])
                             } catch let addPersistentError as NSError {
                                 fatalError("There was an error creating the persistentStoreCoordinator: \(addPersistentError)")
                             }
@@ -116,10 +116,10 @@ public class CoreDataStack {
                         }
                     }
                     
-                    let shouldExcludeSQLiteFromBackup = self.storeType == .SQLite
+                    let shouldExcludeSQLiteFromBackup = self.storeType == .sqLite
                     if shouldExcludeSQLiteFromBackup {
                         do {
-                            try storeURL.setResourceValue(true, forKey: NSURLIsExcludedFromBackupKey)
+                            try (storeURL as NSURL).setResourceValue(true, forKey: URLResourceKey.isExcludedFromBackupKey)
                         } catch let excludingError as NSError {
                             fatalError("Excluding SQLite file from backup caused an error: \(excludingError)")
                         }
@@ -135,13 +135,13 @@ public class CoreDataStack {
         }
     }
     
-    private lazy var disposablePersistentStoreCoordinator: NSPersistentStoreCoordinator = {
-        guard let modelURL = self.modelBundle.URLForResource(self.modelName, withExtension: "momd"), model = NSManagedObjectModel(contentsOfURL: modelURL)
+    fileprivate lazy var disposablePersistentStoreCoordinator: NSPersistentStoreCoordinator = {
+        guard let modelURL = self.modelBundle.url(forResource: self.modelName, withExtension: "momd"), let model = NSManagedObjectModel(contentsOf: modelURL)
             else { fatalError("Model named \(self.modelName) not found in bundle \(self.modelBundle)") }
         
         let persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
         do {
-            try persistentStoreCoordinator.addPersistentStoreWithType(NSInMemoryStoreType, configuration: nil, URL: nil, options: nil)
+            try persistentStoreCoordinator.addPersistentStore(ofType: NSInMemoryStoreType, configurationName: nil, at: nil, options: nil)
         } catch let error as NSError {
             fatalError("There was an error creating the disposablePersistentStoreCoordinator: \(error)")
         }
@@ -150,14 +150,14 @@ public class CoreDataStack {
     }()
     
     deinit {
-        NSNotificationCenter.defaultCenter().removeObserver(self, name: NSManagedObjectContextWillSaveNotification, object: nil)
-        NSNotificationCenter.defaultCenter().removeObserver(self, name: NSManagedObjectContextDidSaveNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.NSManagedObjectContextWillSave, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.NSManagedObjectContextDidSave, object: nil)
     }
     
     // MARK: - Initalizers
     
     public convenience init?() {
-        let bundle = NSBundle.mainBundle()
+        let bundle = Bundle.main
         if let bundleName = bundle.infoDictionary?["CFBundleName"] as? String {
             self.init(modelName: bundleName)
         } else {
@@ -165,7 +165,7 @@ public class CoreDataStack {
         }
     }
     
-    public init(modelName: String, bundle: NSBundle = NSBundle.mainBundle(), storeType: StoreType = .SQLite, storeName: String? = nil) {
+    public init(modelName: String, bundle: Bundle = Bundle.main, storeType: StoreType = .sqLite, storeName: String? = nil) {
         self.modelName = modelName
         self.modelBundle = bundle
         self.storeType = storeType
@@ -174,19 +174,19 @@ public class CoreDataStack {
     
     // MARK: - Observers
     @objc
-    internal func newDisposableMainContextWillSave(notification: NSNotification) {
+    internal func newDisposableMainContextWillSave(_ notification: Notification) {
         if let context = notification.object as? NSManagedObjectContext {
             context.reset()
         }
     }
     
     @objc
-    internal func backgroundContextDidSave(notification: NSNotification) {
-        if NSThread.isMainThread() {
+    internal func backgroundContextDidSave(_ notification: Notification) {
+        if Thread.isMainThread {
             fatalError("Background context saved in the main thread. Use context's `performBlock`")
         } else {
-            mainContext.performBlock {
-                self.mainContext.mergeChangesFromContextDidSaveNotification(notification)
+            mainContext.perform {
+                self.mainContext.mergeChanges(fromContextDidSave: notification)
             }
         }
     }
@@ -194,22 +194,22 @@ public class CoreDataStack {
     // MARK: - Public
     
     /// Creates a new disposable main context.
-    public func newDisposableMainContext() -> NSManagedObjectContext {
-        let context = NSManagedObjectContext(concurrencyType: .MainQueueConcurrencyType)
+    open func newDisposableMainContext() -> NSManagedObjectContext {
+        let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         context.persistentStoreCoordinator = self.disposablePersistentStoreCoordinator
         context.undoManager = nil
         
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(CoreDataStack.newDisposableMainContextWillSave(_:)), name: NSManagedObjectContextWillSaveNotification, object: context)
+        NotificationCenter.default.addObserver(self, selector: #selector(CoreDataStack.newDisposableMainContextWillSave(_:)), name: NSNotification.Name.NSManagedObjectContextWillSave, object: context)
         
         return context
     }
     
     /// Creates a new private context.
-    public func newBackgroundContext(name: String? = nil, parentContext: NSManagedObjectContext? = nil, mergeChanges: Bool = false) -> NSManagedObjectContext {
-        let context = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
+    open func newBackgroundContext(_ name: String? = nil, parentContext: NSManagedObjectContext? = nil, mergeChanges: Bool = false) -> NSManagedObjectContext {
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         
         if let parentContext = parentContext {
-            context.parentContext = parentContext
+            context.parent = parentContext
         } else {
             context.persistentStoreCoordinator = self.persistentStoreCoordinator
         }
@@ -219,30 +219,30 @@ public class CoreDataStack {
         context.name = name
         
         if mergeChanges {
-            NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(CoreDataStack.backgroundContextDidSave(_:)), name: NSManagedObjectContextDidSaveNotification, object: context)
+            NotificationCenter.default.addObserver(self, selector: #selector(CoreDataStack.backgroundContextDidSave(_:)), name: NSNotification.Name.NSManagedObjectContextDidSave, object: context)
         }
         
         return context
     }
     
     /// Creates a new background context, performs `operation` within the context.
-    public func performInNewBackgroundContext(operation: (backgroundContext: NSManagedObjectContext) -> ()) {
+    open func performInNewBackgroundContext(_ operation: @escaping (_ backgroundContext: NSManagedObjectContext) -> ()) {
         let context = newBackgroundContext()
         
-        context.performBlock {
-            operation(backgroundContext: context)
+        context.perform {
+            operation(context)
         }
     }
     
     /// Persists the stack. Calls `completion` with an error if something fails.
     /// This will not save child context's. They must be saved before invoking this method
     /// for their changes to persist.
-    public func persistWithCompletion(completion: ((ErrorType?) -> Void)? = nil) {
-        let saveWriterContext: Void -> Void = {
-            self.writerContext.performBlock {
+    open func persistWithCompletion(_ completion: ((Error?) -> Void)? = nil) {
+        let saveWriterContext: (Void) -> Void = {
+            self.writerContext.perform {
                 do {
                     try self.writerContext.save()
-                    dispatch_async(dispatch_get_main_queue()) {
+                    DispatchQueue.main.async {
                         completion?(nil)
                     }
                 } catch {
@@ -251,7 +251,7 @@ public class CoreDataStack {
             }
         }
         
-        mainContext.performBlock {
+        mainContext.perform {
             do {
                 try self.mainContext.save()
                 saveWriterContext()
@@ -261,103 +261,54 @@ public class CoreDataStack {
         }
     }
     
-    /// Drops a collection for an `entity`. This is not object-graph safe, and
-    /// mostly for development purposes. Deletes in production should respect
-    /// the object graph
-    public func dropEntityCollection(entityName: String, managedObjectContext: NSManagedObjectContext? = nil) -> Bool {
-        let fetchRequest = NSFetchRequest(entityName: entityName)
-        let managedObjectContext = managedObjectContext ?? mainContext
-        
-        if #available(iOS 9.0, OSX 10.11, *) {
-            return batchDeleteCollection(fetchRequest, managedObjectContext: managedObjectContext)
-        } else {
-            // Fallback on earlier versions
-            return fetchAndDeleteCollection(fetchRequest, managedObjectContext: managedObjectContext)
-        }
-        
-    }
-    
-    /// Utilizes `NSBatchDeleteRequest` to delete objects matching `fetchRequest`
-    @available(iOS 9.0, OSX 10.11, *)
-    private func batchDeleteCollection(fetchRequest: NSFetchRequest, managedObjectContext: NSManagedObjectContext) -> Bool {
-        let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        
-        do {
-            try self._persistentStoreCoordinator?.executeRequest(batchDeleteRequest, withContext: managedObjectContext)
-            return true
-        } catch {
-            return false
-        }
-    }
-    
-    /// Loads objects matching `fetchRequest` into memory, and then deletes them.
-    private func fetchAndDeleteCollection(fetchRequest: NSFetchRequest, managedObjectContext: NSManagedObjectContext) -> Bool {
-        fetchRequest.includesPropertyValues = false
-        
-        do {
-            guard let objects = try managedObjectContext.executeFetchRequest(fetchRequest) as? [NSManagedObject]
-            else {
-                return false
-            }
-            
-            for object in objects {
-                managedObjectContext.deleteObject(object)
-            }
-            
-            return true
-        } catch {
-            return false
-        }
-    }
-    
     /// Drops the entire stack.
-    public func drop() {
+    open func drop() {
         guard let store = self.persistentStoreCoordinator.persistentStores.last,
-            storeURL = store.URL,
-            storePath = storeURL.path
+            let storeURL = store.url
             else {
                 fatalError("Persistent store coordinator not found")
         }
         
-        let sqliteFile = (storePath as NSString).stringByDeletingPathExtension
-        let fileManager = NSFileManager.defaultManager()
+        let storePath = storeURL.path
+        let sqliteFile = (storePath as NSString).deletingPathExtension
+        let fileManager = FileManager.default
         
         self._writerContext = nil
         self._mainContext = nil
         self._persistentStoreCoordinator = nil
         
         let shm = sqliteFile + ".sqlite-shm"
-        if fileManager.fileExistsAtPath(shm) {
+        if fileManager.fileExists(atPath: shm) {
             do {
-                try fileManager.removeItemAtURL(NSURL.fileURLWithPath(shm))
+                try fileManager.removeItem(at: URL(fileURLWithPath: shm))
             } catch let error as NSError {
                 print("Could not delete persistent store shm: \(error)")
             }
         }
         
         let wal = sqliteFile + ".sqlite-wal"
-        if fileManager.fileExistsAtPath(wal) {
+        if fileManager.fileExists(atPath: wal) {
             do {
-                try fileManager.removeItemAtURL(NSURL.fileURLWithPath(wal))
+                try fileManager.removeItem(at: URL(fileURLWithPath: wal))
             } catch let error as NSError {
                 print("Could not delete persistent store wal: \(error)")
             }
         }
         
-        if fileManager.fileExistsAtPath(storePath) {
+        if fileManager.fileExists(atPath: storePath) {
             do {
-                try fileManager.removeItemAtURL(storeURL)
+                try fileManager.removeItem(at: storeURL)
             } catch let error as NSError {
                 print("Could not delete sqlite file: \(error)")
             }
         }
     }
     
-    private func applicationDocumentsDirectory() -> NSURL {
+    fileprivate func applicationDocumentsDirectory() -> URL {
         #if os(tvOS)
             return NSFileManager.defaultManager().URLsForDirectory(.CachesDirectory, inDomains: .UserDomainMask).last!
         #else
-            return NSFileManager.defaultManager().URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).last!
+            return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last!
         #endif
     }
 }
