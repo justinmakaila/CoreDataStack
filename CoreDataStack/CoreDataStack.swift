@@ -14,6 +14,7 @@ open class CoreDataStack {
     let storeName: String?
     let modelName: String
     let modelBundle: Bundle
+    let fileProtection: FileProtectionType
     
     /// The context for the main queue
     fileprivate var _mainContext: NSManagedObjectContext?
@@ -99,7 +100,16 @@ open class CoreDataStack {
                     }
                     
                     do {
-                        try persistentStoreCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: [NSMigratePersistentStoresAutomaticallyOption : true, NSInferMappingModelAutomaticallyOption : true])
+                        try persistentStoreCoordinator.addPersistentStore(
+                            ofType: NSSQLiteStoreType,
+                            configurationName: nil,
+                            at: storeURL,
+                            options: [
+                                NSMigratePersistentStoresAutomaticallyOption : true,
+                                NSInferMappingModelAutomaticallyOption : true,
+                                NSPersistentStoreFileProtectionKey: self.fileProtection
+                            ]
+                        )
                     } catch {
                         print("Error encountered while reading the database. Please allow all the data to download again.")
                         
@@ -107,7 +117,16 @@ open class CoreDataStack {
                             try FileManager.default.removeItem(atPath: storePath)
                             
                             do {
-                                try persistentStoreCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: [NSMigratePersistentStoresAutomaticallyOption : true, NSInferMappingModelAutomaticallyOption : true])
+                                try persistentStoreCoordinator.addPersistentStore(
+                                    ofType: NSSQLiteStoreType,
+                                    configurationName: nil,
+                                    at: storeURL,
+                                    options: [
+                                        NSMigratePersistentStoresAutomaticallyOption : true,
+                                        NSInferMappingModelAutomaticallyOption : true,
+                                        NSPersistentStoreFileProtectionKey: self.fileProtection
+                                    ]
+                                )
                             } catch let addPersistentError as NSError {
                                 fatalError("There was an error creating the persistentStoreCoordinator: \(addPersistentError)")
                             }
@@ -165,11 +184,12 @@ open class CoreDataStack {
         }
     }
     
-    public init(modelName: String, bundle: Bundle = Bundle.main, storeType: StoreType = .sqLite, storeName: String? = nil) {
+    public init(modelName: String, bundle: Bundle = Bundle.main, storeType: StoreType = .sqLite, storeName: String? = nil, fileProtection: FileProtectionType = .none) {
         self.modelName = modelName
         self.modelBundle = bundle
         self.storeType = storeType
         self.storeName = storeName
+        self.fileProtection = fileProtection
     }
     
     // MARK: - Observers
